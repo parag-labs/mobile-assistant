@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Lint, typecheck, test, web export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Lint (core)
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test (core engine)
+        run: npm test
+      - name: Evaluate (reproduce metrics from real runs)
+        run: npm run eval
+      - name: Web export (static build)
+        run: npm run build
+
+  audit:
+    name: Dependency scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Gate on critical vulnerabilities. High/moderate advisories in the Expo / React
+      # Navigation / Metro toolchain are transitive and await upstream fixes; they are printed
+      # for visibility but do not fail the build.
+      - name: Report all advisories (informational)
+        run: npm audit --omit=dev || true
+      - name: Fail on critical vulnerabilities
+        run: npm audit --omit=dev --audit-level critical
